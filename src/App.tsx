@@ -1,114 +1,82 @@
-import { OrbitControls, } from '@react-three/drei'
-import { Canvas, useFrame, useLoader, useThree, type ThreeEvent } from '@react-three/fiber'
+import { Html, KeyboardControls, OrbitControls, useProgress } from '@react-three/drei'
+import { Canvas, useLoader, type ThreeEvent } from '@react-three/fiber'
 import { GLTFLoader } from 'three/examples/jsm/Addons.js'
-import React, { useRef, useState } from 'react'
-import * as THREE from 'three'
-import * as YUKA from 'yuka'
-import { createGraphHelper } from './graph.helper'
+import React, { Suspense } from 'react'
+import FP from './player'
+import { StoreProvider } from './store'
+
 const App = () => {
-  const [targetPath, setTargetPath] = useState<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
-  const [followCamera, setFollowCamera] = useState<boolean>(false)
+  const context = React.useContext(StoreProvider)
+  const { setTarget, followCamera, setFollowCamera } = context!
+
   return (
     <>
-      <button id='CameraView' style={{ position: "absolute", top: "10px", left: "10px", zIndex: 100 }} onClick={() => setFollowCamera(!followCamera)}>Camera {followCamera ? "Following" : "Orbit"}</button>
-      <Canvas style={{ width: "100vw", height: "100vh" }}>
-        <OrbitControls />
-        <ambientLight intensity={1} />
-        <ModelLoader url="/navmesh.glb" onClick={(e) => { setTargetPath(e.point) }} />
-        <ModelLoader url="/base_model.glb" />
-        <FP targetPath={targetPath} followCamera={followCamera} />
-      </Canvas>
+      <button
+        id='CameraView'
+        style={{ position: "absolute", top: "10px", left: "10px", zIndex: 100 }}
+        onClick={() => setFollowCamera(!followCamera)}
+      >
+        Camera {followCamera ? "Following" : "Orbit"}
+      </button>
+
+      <KeyboardControls map={[
+        { name: "forward", keys: ["w", "ArrowUp"] },
+        { name: "backward", keys: ["s", "ArrowDown"] },
+        { name: "left", keys: ["a", "ArrowLeft"] },
+        { name: "right", keys: ["d", "ArrowRight"] },
+        { name: "space", keys: ["space", " "] },
+      ]}>
+        <Canvas style={{ width: "100vw", height: "100vh" }}>
+          <OrbitControls />
+          <ambientLight intensity={1} />
+
+          <Suspense fallback={<Loader />}>
+
+          {/* Navmesh loader - hidden mesh */}
+          <ModelLoader url="/navmesh.glb" hidden onClick={(e) => setTarget(e.point)} />
+
+          {/* Base model loader - visible */}
+          <ModelLoader url="/base_model.glb" />
+
+          <FP />
+          </Suspense>
+        </Canvas>
+      </KeyboardControls>
     </>
   )
 }
 
-const ModelLoader = (props: { url: string, onClick?: (e: ThreeEvent<MouseEvent>) => void }) => {
+const ModelLoader = (props: { url: string, hidden?: boolean, onClick?: (e: ThreeEvent<MouseEvent>) => void }) => {
   const { scene } = useLoader(GLTFLoader, props.url)
 
+  // Clone scene to avoid modifying the original
+  const cloned = React.useMemo(() => scene.clone(), [scene])
+
+  // Hide if needed
+  if (props.hidden) cloned.traverse(obj => { obj.visible = false })
+
   return (
-    <mesh {...props} >
-      <primitive object={scene} />
+    <mesh {...props}>
+      <primitive object={cloned} />
     </mesh>
   )
 }
 
-const FP = ({ targetPath, followCamera }: { targetPath: THREE.Vector3, followCamera: boolean }) => {
-  const fpRef = useRef<THREE.Mesh>(null)
-  const navmesh = useNavmeshHelper()
-  const cameraRef = useRef<THREE.PerspectiveCamera>(null)
-  const EntityManager = new YUKA.EntityManager()
-  const fp = new YUKA.Vehicle()
-  const { set } = useThree()
+export default App
 
-  fp.setRenderComponent(fpRef.current!, (entity, renderComponent) => {
-    renderComponent.matrix.copy(entity.worldMatrix)
-  })
 
-  EntityManager.add(fp)
-  useFrame((state, delta) => {
-    if (cameraRef.current) {
-      if (followCamera) {
-        // Follow the fpRef position (already updated by YUKA)
-        const fpPosition = fpRef.current?.position.clone()
-        if (fpPosition) {
-          cameraRef.current.position.lerp(
-            fpPosition.clone().add(new THREE.Vector3(0, 1, 1)),
-            0.1
-          )
-          cameraRef.current.lookAt(fpPosition.clone().add(new THREE.Vector3(0, 1, 0)))
-          set({ camera: cameraRef.current })
-        }
-      }
-    }
-
-    EntityManager.update(delta) // update YUKA every frame
-  })
-
-  React.useEffect(() => gotoTargetPath(), [targetPath])
-  const gotoTargetPath = () => {
-    const currentPosition = fpRef.current?.position
-    if (!currentPosition) {
-      return
-    }
-    const targetPosition = targetPath
-    const c = navmesh?.findPath(new YUKA.Vector3(currentPosition?.x, currentPosition?.y, currentPosition?.z), new YUKA.Vector3(targetPosition.x, targetPosition.y, targetPosition.z))
-    const path = new YUKA.Path()
-    if (c) {
-      for (let i = 0; i < c.length; i++) {
-        path.add(new YUKA.Vector3(c[i].x, c[i].y, c[i].z))
-      }
-    }
-    const followPathBehavior = fp.steering.add(new YUKA.FollowPathBehavior(path, 0.5))
-
-  }
+const Loader = () => {
+  const { progress } = useProgress()
   return (
-    <>
-      <mesh ref={fpRef} name="fp" position={[0, 0.2, 0]} matrixAutoUpdate={false}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshStandardMaterial color="red" />
-      </mesh>
-      {/* <mesh ref={cameraProto} name="fp" position={[0, 0.2, 0]}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshStandardMaterial color="black" />
-      </mesh> */}
-      <perspectiveCamera ref={cameraRef} fov={75} near={0.1} far={1000} />
-    </>
+    <Html center>
+      <div style={{ 
+        background: "rgba(0,0,0,0.7)", 
+        color: "white", 
+        padding: "10px 20px", 
+        borderRadius: "8px" 
+      }}>
+        Loading... {progress.toFixed(0)}%
+      </div>
+    </Html>
   )
 }
-
-const useNavmeshHelper = () => {
-  const NavmeshLoader = new YUKA.NavMeshLoader()
-  const { scene } = useThree()
-  const [navigationMesh, setNavigationMesh] = React.useState<YUKA.NavMesh>()
-  React.useEffect(() => {
-    NavmeshLoader.load('../public/navmesh.glb').then(navigationMesh => {
-      const graphHelper = createGraphHelper(navigationMesh.graph, 0.02)
-      scene.add(graphHelper)
-      setNavigationMesh(navigationMesh)
-    })
-  }, [])
-  return navigationMesh
-}
-
-
-export default App
