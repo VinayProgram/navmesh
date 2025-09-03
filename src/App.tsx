@@ -30,14 +30,16 @@ const App = () => {
           <OrbitControls />
           <ambientLight intensity={1} />
 
-          <Suspense fallback={<Loader />}>
-
+          <Suspense fallback={<Loader label="Map" />}>
           {/* Navmesh loader - hidden mesh */}
           <ModelLoader url="/navmesh.glb" hidden onClick={(e) => setTarget(e.point)} />
-
+          </Suspense>
           {/* Base model loader - visible */}
+          <Suspense fallback={<Loader label="Scene" />}>
           <ModelLoader url="/base_model.glb" />
+          </Suspense>
 
+          <Suspense fallback={<Loader label="Player" />}>
           <FP />
           </Suspense>
         </Canvas>
@@ -65,7 +67,7 @@ const ModelLoader = (props: { url: string, hidden?: boolean, onClick?: (e: Three
 export default App
 
 
-const Loader = () => {
+const Loader = ({label}:{label:string}) => {
   const { progress } = useProgress()
   return (
     <Html center>
@@ -75,7 +77,7 @@ const Loader = () => {
         padding: "10px 20px", 
         borderRadius: "8px" 
       }}>
-        Loading... {progress.toFixed(0)}%
+        Loading {label}... {progress.toFixed(0)}%
       </div>
     </Html>
   )
