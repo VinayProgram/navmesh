@@ -28,8 +28,10 @@ const App = () => {
       ]}>
         <Canvas style={{ width: "100vw", height: "100vh" }}>
           <OrbitControls />
+          <hemisphereLight intensity={1} color={"#f3e7d3"}/>
           <ambientLight intensity={1} />
-
+          <ambientLight intensity={1}  color={"#f3e7d3"}/>
+          
           <Suspense fallback={<Loader label="Map" />}>
           <ModelLoader url="/navmesh.glb" hidden  position={new THREE.Vector3(-1.3, 0, 0)}  onClick={(e) => {
             console.log(e.point)
