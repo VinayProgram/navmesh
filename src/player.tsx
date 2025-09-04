@@ -26,16 +26,18 @@ const FP = () => {
         if (followCamera) {
             const fpPosition = fpRef.current?.position.clone()
             if (fpPosition) {
-                state.camera.position.lerp(
-                    fpPosition.clone().add(new THREE.Vector3(0, 1.3, 1.5).applyEuler(fpRef.current?.rotation!)),
-                    0.1
+                const cameraPos = fpPosition.clone().add(
+                    new THREE.Vector3(0, 1.3, 0).applyEuler(fpRef.current!.rotation)
                 )
-                state.camera.lookAt(fpPosition.clone().add(new THREE.Vector3(0, 1, 0)))
+                const forward = new THREE.Vector3(0, 0, -1)
+                    .applyEuler(fpRef.current!.rotation)    
+                const target = cameraPos.clone().add(forward)
+                state.camera.position.lerp(cameraPos, 0.1)
+                state.camera.lookAt(target)
             }
         }
         const direction = new THREE.Vector3()
         state.camera.getWorldDirection(direction)
-        direction.y = 0 // optional: ignore vertical tilt so movement stays on ground
         direction.normalize()
         const { forward, backward, left, right, space } = get();
         const speed = 0.4
@@ -47,7 +49,7 @@ const FP = () => {
         if (space) fp.velocity.set(0, 0, 0)
         if (left) fpRef.current?.rotateY(0.05);
         if (right) fpRef.current?.rotateY(-0.05);
-        EntityManager.update(delta) // update YUKA every frame
+        EntityManager.update(delta) 
     })
 
     React.useEffect(() => {
@@ -72,7 +74,7 @@ const FP = () => {
 
     return (
         <group>
-            <mesh visible={false} ref={fpRef} name="fp" onClick={(e) => { fpRef.current?.rotateY(1) }}>
+            <mesh visible={false} ref={fpRef} name="fp" onClick={(e) => { console.log(e) }}>
                 <boxGeometry args={[0.5, 0.5, 0.5]} />
                 <meshStandardMaterial color="red" />
             </mesh>
@@ -92,9 +94,10 @@ const useNavmeshHelper = () => {
     React.useEffect(() => {
         NavmeshLoader.load('../public/navmesh.glb').then(navigationMesh => {
             const graphHelper = createGraphHelper(navigationMesh.graph, 0.02)
-            // scene.add(graphHelper)
+            scene.add(graphHelper)
             setNavigationMesh(navigationMesh)
         })
     }, [])
     return navigationMesh
 }
+

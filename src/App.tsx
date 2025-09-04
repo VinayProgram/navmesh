@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/Addons.js'
 import React, { Suspense } from 'react'
 import FP from './player'
 import { StoreProvider } from './store'
-
+import * as THREE from 'three'
 const App = () => {
   const context = React.useContext(StoreProvider)
   const { setTarget, followCamera, setFollowCamera } = context!
@@ -31,12 +31,13 @@ const App = () => {
           <ambientLight intensity={1} />
 
           <Suspense fallback={<Loader label="Map" />}>
-          {/* Navmesh loader - hidden mesh */}
-          <ModelLoader url="/navmesh.glb" hidden onClick={(e) => setTarget(e.point)} />
+          <ModelLoader url="/navmesh.glb" hidden  position={new THREE.Vector3(-1.3, 0, 0)}  onClick={(e) => {
+            console.log(e.point)
+            setTarget(e.point)}} />
           </Suspense>
           {/* Base model loader - visible */}
           <Suspense fallback={<Loader label="Scene" />}>
-          <ModelLoader url="/base_model.glb" />
+          <ModelLoader url="/base_model.glb" position={new THREE.Vector3(-1.3, 0, 0)} />
           </Suspense>
 
           <Suspense fallback={<Loader label="Player" />}>
@@ -48,18 +49,11 @@ const App = () => {
   )
 }
 
-const ModelLoader = (props: { url: string, hidden?: boolean, onClick?: (e: ThreeEvent<MouseEvent>) => void }) => {
-  const { scene } = useLoader(GLTFLoader, props.url)
-
-  // Clone scene to avoid modifying the original
-  const cloned = React.useMemo(() => scene.clone(), [scene])
-
-  // Hide if needed
-  if (props.hidden) cloned.traverse(obj => { obj.visible = false })
-
+const ModelLoader = (props: { url: string, position?: THREE.Vector3, hidden?: boolean, onClick?: (e: ThreeEvent<MouseEvent>) => void }) => {
+  const { scene } = useLoader(GLTFLoader, props.url) 
   return (
-    <mesh {...props}>
-      <primitive object={cloned} />
+    <mesh {...props} visible={!props.hidden}>
+      <primitive object={scene} />
     </mesh>
   )
 }
